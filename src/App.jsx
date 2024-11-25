@@ -6,29 +6,35 @@ import SerialPortCommunication from "./components/Serial";
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import UBS from "./components/UBS";
 import Wifi from "./components/Wifi";
-import Web from "./components/Web";
+import Header from "./Header";
+import Test from "./components/Test";
 
 
 function App() {
   return (
     <>
-      <Router>
-        <div>
-          <Routes>
-            <Route path="/" element={<SerialPortCommunication />} />
-            <Route path="/UBS" element={<UBS />} />  
-            <Route path="/Wifi" element={<Wifi />} />  
+      <div className="ml-60 mr-60" >
+        <Router>
+          <div>
+          <Header />
+          </div>
+          <div >
+            <Routes>
+              <Route path="/" element={<SerialPortCommunication />} />
+              <Route path="/UBS" element={<UBS />} />
+              <Route path="/Wifi" element={<Wifi />} />
 
-            <Route path="/Web" element={<Web />} />  
+              <Route path="/Test" element={<Test />} />
+              
+              <Route path="/BluetoothCommunication"
+                element={<BluetoothCommunication />} />
+            </Routes>
+          </div>
 
-          </Routes>
-        </div>
-      </Router>
 
-      
-
-      {/* <SerialPortCommunication /> */}
-      {/* <BluetoothCommunication/> */}
+         
+        </Router>
+      </div>
     </>
   );
 }
