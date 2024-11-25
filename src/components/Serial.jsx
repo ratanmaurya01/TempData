@@ -818,84 +818,175 @@ function SerialPortCommunication() {
   // };
 
 
+  function formatDate(dateStr) {
+
+    // Check if day, month, or year is '00' and return without slashes if true
+    if (dateStr === '0') {
+      return 0;  // Return the raw string if any part is '00'
+    }
+    // Example dateStr: '191124' (YYMMDD)
+    const day = dateStr.slice(2, 4);
+    const month = dateStr.slice(0, 2);
+    const year = dateStr.slice(4, 6);  // Assuming date is in YYMMDD format
+    return `${month}/${day}/${year}`;
+  }
+
+  function formatTime(timeStr) {
+    // Example timeStr: '102529' (HHMMSS)
+    if (timeStr === '0') {
+      return 0;  // Return the raw string if any part is '00'
+    }
+
+    const hours = timeStr.slice(0, 2);
+    const minutes = timeStr.slice(2, 4);
+    const seconds = timeStr.slice(4, 6);
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
 
   async function sendCommandWithFullResponse(command, expectedLength) {
-    // console.log("Sending Command:", Array.from(command));
-    await writer.write(command);
 
+    await writer.write(command);
     const response = await readCompleteResponse(expectedLength);
-    //  console.log("Complete Response:", response);
-    return response;
+    const hexResponse = Array.from(response).map(byte => byte.toString(16).padStart(2, '0')).join('');
+    return hexResponse;
   }
 
   const commands = [
 
-    { label: "C-Open temper", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x01]), expectedLength: 19 },
-    { label: "Magent temper", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x02]), expectedLength: 145 },
+    //  { label: "C-Open temper", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x01]), expectedLength: 19 },
+    // { label: "Magent temper", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x02]), expectedLength: 145 },
     // { label: "Reverse temper", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0x0E8, 0x00, 0x03]), expectedLength: 145 },
-    // { label: "CT-Bypass temper", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x04]), expectedLength: 145 }
+    // { label: "CT-Bypass temper", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x04]), expectedLength: 145 },
+
+    // { label: "Neutaral disturbance", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x05]), expectedLength: 145 },
+
+    // { label: "R phase petential missing", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x06]), expectedLength: 145 },
+
+    // { label: "B phase petential missing", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0x38, 0x00, 0x07]), expectedLength: 145 },
+
+    { label: "Y phase petential missing", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x08]), expectedLength: 145 },
+
+    // { label: "Power fail event", command: prepareCommandWithCRC([0x7F, 0x04, 0x03, 0xE8, 0x00, 0x09]), expectedLength: 145 },
 
   ];
 
   async function handleTemperedData() {
+    setBillingHistory([]);
+    setInstanceData([]);
+    setRechargeHistory([]);
+    setCurrentBalance('');
+    setTemperedData([]);
+    setDeductionData([]);
+
+    const newTemperedData = [];
+
     for (const { label, command, expectedLength } of commands) {
       const response = await sendCommandWithFullResponse(command, expectedLength);
       console.log("Received Full Response:", response.length);
-      console.log("Received Full Response:", response);
       console.log(`Label: ${label}`);
 
       if (label === "C-Open temper") {
-        if (response.length === 19) {
-
+        if (response.length === 38) {
+          // console.log("Received Full Response:", response);
           // Remove the first 3 and last 2 digits, and convert the result into a regular array
-          const processedData = Array.from(response.slice(3, -2)); // Convert Uint8Array to a regular array
-          console.log("Processed Data (14 digits):", processedData);
-          //Convert hex values to decimal
-          const processedDataDecimal = processedData.map(hex => parseInt(hex.toString(16), 16));
-          console.log("Processed Data in Decimal:", processedDataDecimal);
-          // Extract sr, date, and time values as per your description
-          // Assuming the data is in the format:
-          // sr = 1 digit, date = 3 digits, time = 3 digits, sr = 1 digit, date = 3 digits, time = 3 digits
-          const sr1 = processedDataDecimal[0];
-          const date1 = processedDataDecimal.slice(1, 4);
-          const time1 = processedDataDecimal.slice(4, 7);
-          const sr2 = processedDataDecimal[7];
-          const date2 = processedDataDecimal.slice(8, 11);
-          const time2 = processedDataDecimal.slice(11, 14);
-          console.log("SR 1:", sr1);
-          console.log("Date 1:", date1);
-          console.log("Time 1:", time1);
-          console.log("SR 2:", sr2);
-          console.log("Date 2:", date2);
-          console.log("Time 2:", time2);
+          const processedData = (response.slice(6, -4)); // Convert Uint8Array to a regular array
+          //console.log("Processed Data (14 digits):", processedData);
+          // Assuming `processedData` is a Uint8Array, convert it to a regular array
+          const dataArray = Array.from(processedData);
+          // Extract individual components
+          // const sr1 = parseInt(dataArray.slice(0, 2).join(''), 16).toString(); // Convert first 2 hex digits to decimal
+          // const date1 = parseInt(dataArray.slice(2, 8).join(''), 16).toString(); // Convert next 6 hex digits to decimal
+          // const time1 = parseInt(dataArray.slice(8, 14).join(''), 16).toString(); // Convert next 6 hex digits to decimal
+          // const sr2 = parseInt(dataArray.slice(14, 16).join(''), 16).toString(); // Convert next 2 hex digits to decimal
+          // const date2 = parseInt(dataArray.slice(16, 22).join(''), 16).toString(); // Convert next 6 hex digits to decimal
+          // const time2 = parseInt(dataArray.slice(22, 28).join(''), 16).toString(); // Convert last 6 hex digits to decimal
+
+
+          const sr1 = parseInt(dataArray.slice(0, 2).join(''), 16).toString();
+          const date1 = formatDate(parseInt(dataArray.slice(2, 8).join(''), 16).toString());  // Format the date
+          const time1 = formatTime(parseInt(dataArray.slice(8, 14).join(''), 16).toString());  // Format the time
+          const sr2 = parseInt(dataArray.slice(14, 16).join(''), 16).toString();
+          const date2 = formatDate(parseInt(dataArray.slice(16, 22).join(''), 16).toString());  // Format the date
+          const time2 = formatTime(parseInt(dataArray.slice(22, 28).join(''), 16).toString());  // Format the time
+
+
+
+          // Print the extracted data in decimal
+
+
+          console.log("SR 1 (Decimal):", sr1);
+          console.log("Date 1 (Decimal):", date1);
+          console.log("Time 1 (Decimal):", time1);
+          console.log("SR 2 (Decimal):", sr2);
+          console.log("Date 2 (Decimal):", date2);
+          console.log("Time 2 (Decimal):", time2);
+
+          newTemperedData.push({
+            label,
+            data: { sr1, date1, time1, sr2, date2, time2 },
+          });
+
+
         }
       }
-      if (response.length === 145) {
+
+      if (response.length === 290) {
         // Remove the first 3 and last 2 digits, and convert the result into a regular array
-        const processedData = Array.from(response.slice(3, -2)); // Convert Uint8Array to a regular array
-        console.log("Processed Data (14 digits):", processedData);
+        const processedData = (response.slice(6, -4)); // Convert Uint8Array to a regular array
+        console.log("Processed Data (14 digits):", processedData.length);
 
-        //Convert hex values to decimal
-        const processedDataDecimal = processedData.map(hex => parseInt(hex.toString(16), 16));
-        console.log("Processed Data in Decimal:", processedDataDecimal);
+        // Loop through the processed data and divide it into 10 groups of 28 digits
+        const groupSize = 28;
+        const numberOfGroups = 10;
 
-        // Total groups (14 groups of 10 elements each)
-        const groups = [];
-        for (let i = 0; i < processedDataDecimal.length; i += 14) {
-          groups.push(processedDataDecimal.slice(i, i + 10));
+        // Iterate over the processedData and slice it into 10 groups
+        for (let i = 0; i < numberOfGroups; i++) {
+          const group = processedData.slice(i * groupSize, (i + 1) * groupSize); // Slice out a group of 28 digits
+          // Convert the group to a regular array (if it's not already)
+          const dataArray = Array.from(group);
+
+          // Extract and convert the subcomponents from each group
+          // const sr1 = parseInt(dataArray.slice(0, 2).join(''), 16).toString();  // First 2 hex digits to decimal
+          // const date1 = parseInt(dataArray.slice(2, 8).join(''), 16).toString();  // Next 6 hex digits to decimal
+          // const time1 = parseInt(dataArray.slice(8, 14).join(''), 16).toString();  // Next 6 hex digits to decimal
+          // const sr2 = parseInt(dataArray.slice(14, 16).join(''), 16).toString();  // Next 2 hex digits to decimal
+          // const date2 = parseInt(dataArray.slice(16, 22).join(''), 16).toString();  // Next 6 hex digits to decimal
+          // const time2 = parseInt(dataArray.slice(22, 28).join(''), 16).toString();  // Last 6 hex digits to decimal
+          // // Print the extracted and converted data for each group
+
+
+          const sr1 = parseInt(dataArray.slice(0, 2).join(''), 16).toString();
+          const date1 = formatDate(parseInt(dataArray.slice(2, 8).join(''), 16).toString());  // Format the date
+          const time1 = formatTime(parseInt(dataArray.slice(8, 14).join(''), 16).toString());  // Format the time
+          const sr2 = parseInt(dataArray.slice(14, 16).join(''), 16).toString();
+          const date2 = formatDate(parseInt(dataArray.slice(16, 22).join(''), 16).toString());  // Format the date
+          const time2 = formatTime(parseInt(dataArray.slice(22, 28).join(''), 16).toString());  // Format the time
+
+
+
+          console.log(`Group ${i + 1}:`);
+          console.log("  SR 1:", sr1);
+          console.log("  Date 1:", date1);
+          console.log("  Time 1:", time1);
+          console.log("  SR 2:", sr2);
+          console.log("  Date 2:", date2);
+          console.log("  Time 2:", time2);
+
+          newTemperedData.push({
+            label,
+            data: { sr1, date1, time1, sr2, date2, time2 },
+          });
+
         }
-
-        // Print the 14 groups (10 elements per group)
-        groups.forEach((group, index) => {
-          console.log(`Group ${index + 1}:`, group);
-        });
-
-
       }
-
-
     }
+
+    setTemperedData(newTemperedData); // Set the processed data in the state
+
   }
+
+
 
   async function readCompleteResponse(expectedLength) {
     let completeResponse = [];
@@ -922,12 +1013,6 @@ function SerialPortCommunication() {
 
     return new Uint8Array(completeResponse);
   }
-
-
-
-
-
-
 
 
   const DeductionCommand = [
@@ -1127,7 +1212,6 @@ function SerialPortCommunication() {
             )}
           </div>
 
-
           <div>
             {rechargeHistory.length > 0 && (
               <>
@@ -1156,7 +1240,7 @@ function SerialPortCommunication() {
             {temperedData.length > 0 && (
               <>
                 <p>Tempered Data</p>
-                <table className="min-w-[50%] bg-white ">
+                <table className="min-w-[90%] bg-white ">
                   <thead className="bg-gray-200">
                     <tr>
                       <th className="py-2 px-4">Description</th>
@@ -1167,7 +1251,13 @@ function SerialPortCommunication() {
                     {temperedData.map((item, index) => (
                       <tr key={index}>
                         <td className="border px-4 py-2">{item.label}</td>
-                        <td className="border px-4 py-2">{item.data}</td>
+                        <td className="border px-4 py-2">
+                          {Object.entries(item.data).map(([key, value], idx) => (
+                            <div key={idx}>
+                              {key}: {value}
+                            </div>
+                          ))}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
